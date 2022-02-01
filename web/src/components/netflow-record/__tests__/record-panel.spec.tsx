@@ -1,0 +1,35 @@
+import { shallow } from 'enzyme';
+import * as React from 'react';
+import { FiltersSample } from '../../__tests-data__/filters';
+import { ColumnsSample } from '../../__tests-data__/columns';
+import { FlowsSample } from '../../__tests-data__/flows';
+import RecordPanel, { RecordDrawerProps } from '../record-panel';
+import { DrawerCloseButton } from '@patternfly/react-core';
+
+describe('<RecordPanel />', () => {
+  const mocks: RecordDrawerProps = {
+    record: FlowsSample[0],
+    columns: ColumnsSample,
+    filters: FiltersSample,
+    range: 300,
+    options: { reporter: 'destination', limit: 100 },
+    setFilters: jest.fn(),
+    setRange: jest.fn(),
+    setQueryOptions: jest.fn(),
+    onClose: jest.fn(),
+    id: 'record-panel-test'
+  };
+  it('should render component', async () => {
+    const wrapper = shallow(<RecordPanel {...mocks} />);
+    expect(wrapper.find(RecordPanel)).toBeTruthy();
+    expect(wrapper.find('#record-panel-test')).toHaveLength(1);
+    expect(wrapper.find('.record-field-container')).toHaveLength(ColumnsSample.length);
+  });
+  it('should close on click', async () => {
+    const wrapper = shallow(<RecordPanel {...mocks} />);
+    const closeButton = wrapper.find(DrawerCloseButton);
+    expect(closeButton).toHaveLength(1);
+    closeButton.simulate('click');
+    expect(mocks.onClose).toHaveBeenCalled();
+  });
+});

@@ -1,44 +1,53 @@
 import { isModelFeatureFlag, ModelFeatureFlag, useResolvedExtensions } from '@openshift-console/dynamic-plugin-sdk';
-import { Button, OverflowMenuItem, PageSection, Tooltip } from '@patternfly/react-core';
+import {
+  Button,
+  Drawer,
+  DrawerContent,
+  DrawerContentBody,
+  OverflowMenuItem,
+  PageSection,
+  Text,
+  TextVariants,
+  Tooltip
+} from '@patternfly/react-core';
 import { ColumnsIcon, SyncAltIcon } from '@patternfly/react-icons';
 import * as _ from 'lodash';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
-
+import { useHistory } from 'react-router-dom';
 import { Record } from '../api/ipfix';
 import { getFlows } from '../api/routes';
-import NetflowTable from './netflow-table/netflow-table';
+import { QueryOptions } from '../model/query-options';
 import { Column, getDefaultColumns } from '../utils/columns';
-import { usePoll } from '../utils/poll-hook';
-import { ColumnsModal } from './columns-modal';
-import { FiltersToolbar } from './filters-toolbar';
-import './netflow-traffic.css';
-import { RefreshDropdown } from './refresh-dropdown';
-import TimeRangeDropdown from './time-range-dropdown';
-import TimeRangeModal from './time-range-modal';
-import {
-  setURLQueryArguments,
-  buildQueryArguments,
-  getFiltersFromURL,
-  getQueryOptionsFromURL,
-  getRangeFromURL,
-  QueryArguments,
-  NETFLOW_TRAFFIC_PATH,
-  removeURLQueryArguments
-} from '../utils/router';
 import { TimeRange } from '../utils/datetime';
-import DisplayDropdown from './display-dropdown';
-import { Size } from './display-dropdown';
+import { getHTTPErrorDetails } from '../utils/errors';
+import { Filter } from '../utils/filters';
 import {
   LOCAL_STORAGE_COLS_KEY,
   LOCAL_STORAGE_REFRESH_KEY,
   LOCAL_STORAGE_SIZE_KEY,
   useLocalStorage
 } from '../utils/local-storage-hook';
-import { Filter } from '../utils/filters';
-import { QueryOptions } from '../model/query-options';
-import { getHTTPErrorDetails } from '../utils/errors';
-import { useHistory } from 'react-router-dom';
+import { usePoll } from '../utils/poll-hook';
+import {
+  buildQueryArguments,
+  getFiltersFromURL,
+  getQueryOptionsFromURL,
+  getRangeFromURL,
+  NETFLOW_TRAFFIC_PATH,
+  QueryArguments,
+  removeURLQueryArguments,
+  setURLQueryArguments
+} from '../utils/router';
+import { ColumnsModal } from './columns-modal';
+import DisplayDropdown, { Size } from './display-dropdown';
+import { FiltersToolbar } from './filters-toolbar';
+import { RecordPanel } from './netflow-record/record-panel';
+import NetflowTable from './netflow-table/netflow-table';
+import './netflow-traffic.css';
+import { RefreshDropdown } from './refresh-dropdown';
+import TimeRangeDropdown from './time-range-dropdown';
+import TimeRangeModal from './time-range-modal';
 
 export const NetflowTraffic: React.FC<{
   forcedFilters?: Filter[];
@@ -63,6 +72,13 @@ export const NetflowTraffic: React.FC<{
   const [queryOptions, setQueryOptions] = React.useState<QueryOptions>(getQueryOptionsFromURL());
   const [interval, setInterval] = useLocalStorage<number | undefined>(LOCAL_STORAGE_REFRESH_KEY);
   const isInit = React.useRef(true);
+  const [selectedRecord, setSelectedRecord] = React.useState<Record | undefined>(undefined);
+
+  const onSelect = (record?: Record) => {
+    setTRModalOpen(false);
+    setColModalOpen(false);
+    setSelectedRecord(record);
+  };
 
   const tick = React.useCallback(
     (queryArgs?: QueryArguments) => {
@@ -142,65 +158,88 @@ export const NetflowTraffic: React.FC<{
   }, [range]);
 
   return !_.isEmpty(extensions) ? (
-    <PageSection id="pageSection">
-      {
-        //display title only if forced filters is not set
-        _.isEmpty(forcedFilters) && (
-          <h1 className="co-m-pane__heading">
-            <span>{t('Network Traffic')}</span>
-            {coActions}
-          </h1>
-        )
-      }
-      <FiltersToolbar
-        id="filter-toolbar"
-        columns={columns}
-        filters={filters}
-        setFilters={updateTableFilters}
-        clearFilters={clearFilters}
-        queryOptions={queryOptions}
-        setQueryOptions={setQueryOptions}
-        forcedFilters={forcedFilters}
-        //show actions next to filters if title is hidden
-        actions={!_.isEmpty(forcedFilters) ? coActions : null}
+    <Drawer id="pageDrawer" isExpanded={selectedRecord !== undefined}>
+      <DrawerContent
+        panelContent={
+          <RecordPanel
+            id="recordPanel"
+            record={selectedRecord}
+            columns={columns}
+            filters={filters}
+            range={range}
+            options={queryOptions}
+            setFilters={setFilters}
+            setRange={setRange}
+            setQueryOptions={setQueryOptions}
+            onClose={() => onSelect(undefined)}
+          />
+        }
       >
-        <OverflowMenuItem>
-          <Tooltip content={t('Manage columns')}>
-            <Button
-              id="manage-columns-button"
-              variant="plain"
-              onClick={() => setColModalOpen(true)}
-              aria-label={t('Column management')}
+        <DrawerContentBody>
+          <PageSection id="pageSection">
+            {
+              //display title only if forced filters is not set
+              _.isEmpty(forcedFilters) && (
+                <Text component={TextVariants.h1} className="co-m-pane__heading">
+                  <span>{t('Network Traffic')}</span>
+                  {coActions}
+                </Text>
+              )
+            }
+            <FiltersToolbar
+              id="filter-toolbar"
+              columns={columns}
+              filters={filters}
+              setFilters={updateTableFilters}
+              clearFilters={clearFilters}
+              queryOptions={queryOptions}
+              setQueryOptions={setQueryOptions}
+              forcedFilters={forcedFilters}
+              //show actions next to filters if title is hidden
+              actions={!_.isEmpty(forcedFilters) ? coActions : null}
             >
-              <ColumnsIcon color="#6A6E73" />
-            </Button>
-          </Tooltip>
-        </OverflowMenuItem>
-        <DisplayDropdown id="display-dropdown" setSize={setSize} />
-      </FiltersToolbar>
-      <NetflowTable
-        loading={loading}
-        error={error}
-        flows={flows}
-        size={size}
-        clearFilters={clearFilters}
-        columns={columns.filter(col => col.isSelected)}
-      />
-      <TimeRangeModal
-        id="time-range-modal"
-        isModalOpen={isTRModalOpen}
-        setModalOpen={setTRModalOpen}
-        range={typeof range === 'object' ? range : undefined}
-        setRange={setRange}
-      />
-      <ColumnsModal
-        id="columns-modal"
-        isModalOpen={isColModalOpen}
-        setModalOpen={setColModalOpen}
-        columns={columns}
-        setColumns={setColumns}
-      />
-    </PageSection>
+              <OverflowMenuItem>
+                <Tooltip content={t('Manage columns')}>
+                  <Button
+                    id="manage-columns-button"
+                    variant="plain"
+                    onClick={() => setColModalOpen(true)}
+                    aria-label={t('Column management')}
+                  >
+                    <ColumnsIcon color="#6A6E73" />
+                  </Button>
+                </Tooltip>
+              </OverflowMenuItem>
+              <DisplayDropdown id="display-dropdown" setSize={setSize} />
+            </FiltersToolbar>
+            <NetflowTable
+              loading={loading}
+              error={error}
+              flows={flows}
+              selectedRecord={selectedRecord}
+              size={size}
+              onSelect={onSelect}
+              clearFilters={clearFilters}
+              columns={columns.filter(col => col.isSelected)}
+            />
+            <TimeRangeModal
+              id="time-range-modal"
+              isModalOpen={isTRModalOpen}
+              setModalOpen={setTRModalOpen}
+              range={typeof range === 'object' ? range : undefined}
+              setRange={setRange}
+            />
+            <ColumnsModal
+              id="columns-modal"
+              isModalOpen={isColModalOpen}
+              setModalOpen={setColModalOpen}
+              columns={columns}
+              setColumns={setColumns}
+            />
+          </PageSection>
+        </DrawerContentBody>
+      </DrawerContent>
+    </Drawer>
   ) : null;
 };
 
