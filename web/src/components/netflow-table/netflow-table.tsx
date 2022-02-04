@@ -38,6 +38,15 @@ const NetflowTable: React.FC<{
   // sort direction of the currently active column
   const [activeSortDirection, setActiveSortDirection] = React.useState<string>('asc');
 
+  const firstRender = React.useRef(true);
+
+  React.useEffect(() => {
+    if (firstRender.current) {
+      firstRender.current = firstRender.current && flows.length == 0;
+      return;
+    }
+  }, [flows]);
+
   // sort function
   const getSortedFlows = () => {
     if (activeSortIndex < 0 || activeSortIndex >= columns.length) {
@@ -110,10 +119,10 @@ const NetflowTable: React.FC<{
         columns={columns}
         size={size}
         onSelect={onSelect}
+        highlight={!firstRender.current}
       />
     ));
   }
-
   return (
     <TableComposable aria-label="Misc table" variant="compact">
       <NetflowTableHeader

@@ -16,7 +16,7 @@ describe('<NetflowTableRow />', () => {
   };
   it('should render component', async () => {
     flows = FlowsSample;
-    const wrapper = shallow(<NetflowTableRow flow={flows[0]} columns={ColumnsSample} {...mocks} />);
+    const wrapper = shallow(<NetflowTableRow flow={flows[0]} columns={ColumnsSample} {...mocks} highlight={false} />);
     expect(wrapper.find(NetflowTableRow)).toBeTruthy();
     expect(wrapper.find(Tr)).toHaveLength(1);
     expect(wrapper.find(Td)).toHaveLength(ColumnsSample.length);
@@ -24,7 +24,7 @@ describe('<NetflowTableRow />', () => {
   it('should render given columns', async () => {
     flows = FlowsSample;
     const reducedColumns = ColumnsSample.slice(2, 4);
-    const wrapper = shallow(<NetflowTableRow flow={flows[0]} columns={reducedColumns} {...mocks} />);
+    const wrapper = shallow(<NetflowTableRow flow={flows[0]} columns={reducedColumns} {...mocks} highlight={true} />);
     expect(wrapper.find(NetflowTableRow)).toBeTruthy();
     expect(wrapper.find(Tr)).toHaveLength(1);
     expect(wrapper.find(Td)).toHaveLength(reducedColumns.length);
